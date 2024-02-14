@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     io::{self, Cursor},
     ops::Not,
     path::{Path, PathBuf},
@@ -6,20 +7,20 @@ use std::{
 
 use anyhow::{bail, Context};
 use fs_err as fs;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use zip::ZipArchive;
 
-use crate::CLIENT;
+use crate::{Result, CLIENT};
 
 /// Response from {PGXN}/stats/dist.json
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct DistResponse {
     pub count: i64,
     pub releases: i64,
     pub recent: Vec<Release>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Release {
     pub dist: String,
     pub version: String,
@@ -31,7 +32,7 @@ pub struct Release {
 }
 
 impl Release {
-    pub fn download_url(&self) -> String {
+    fn download_url(&self) -> String {
         // Assumes the following spec: "/dist/{dist}/{version}/{dist}-{version}.zip"
         // TODO(vini): use the correct URL template from pgxn here
 
@@ -40,6 +41,16 @@ impl Release {
         let dist = dist.to_lowercase();
 
         format!("https://master.pgxn.org/dist/{dist}/{version}/{dist}-{version}.zip")
+    }
+
+    fn meta_url(&self) -> String {
+        // Assumes the following spec: "/dist/{dist}/{version}/META.json"
+
+        let Self { dist, version, .. } = &self;
+
+        let dist = dist.to_lowercase();
+
+        format!("https://master.pgxn.org/dist/{dist}/{version}/META.json")
     }
 
     /// Get this distribution's zip archive as bytes
@@ -57,7 +68,20 @@ impl Release {
         response.bytes().await.map_err(Into::into)
     }
 
-    pub async fn download_to(&self, target: &Path) -> anyhow::Result<PathBuf> {
+    pub async fn get_metadata(&self) -> Result<MetaJson> {
+        let url = self.meta_url();
+
+        CLIENT
+            .get(&url)
+            .send()
+            .await?
+            .json()
+            .await
+            .with_context(|| format!("Failed to deserialize output of {url}"))
+    }
+
+    #[allow(unused)]
+    pub async fn download_to(&self, target: &Path) -> Result<PathBuf> {
         let bytes = self.get_dist_zip().await?;
 
         let cursor = Cursor::new(&*bytes);
@@ -102,4 +126,90 @@ pub async fn get_dists() -> anyhow::Result<DistResponse> {
         .json()
         .await
         .with_context(|| "Failed to deserialize response of /stats/dist.json")
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetaJson {
+    pub name: String,
+    #[serde(rename = "abstract")]
+    pub _abstract: String,
+    pub description: Option<String>,
+    pub version: String,
+    pub date: String,
+    pub maintainer: Maintainer,
+    #[serde(rename = "release_status")]
+    pub release_status: String,
+    pub user: String,
+    pub license: License,
+    #[serde(default)]
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Runtime {
+    pub recommends: Recommends,
+    pub requires: Requires,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Recommends {
+    #[serde(rename = "PostgreSQL")]
+    pub postgre_sql: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Requires {
+    #[serde(rename = "PostgreSQL")]
+    pub postgre_sql: String,
+    pub plpgsql: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PgtapSchema {
+    #[serde(rename = "abstract")]
+    pub abstract_field: String,
+    pub file: String,
+    pub version: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Resources {
+    pub bugtracker: Bugtracker,
+    pub homepage: String,
+    pub repository: Repository,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Bugtracker {
+    pub web: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Repository {
+    #[serde(rename = "type")]
+    pub type_field: String,
+    pub url: String,
+    pub web: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum Maintainer {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum License {
+    Simple(String),
+    WithLink(HashMap<String, String>),
 }

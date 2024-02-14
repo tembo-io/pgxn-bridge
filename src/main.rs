@@ -1,10 +1,9 @@
 pub type Result<T = ()> = anyhow::Result<T>;
 
-use std::{cmp::Ordering, fs};
+use std::cmp::Ordering;
 
 use once_cell::sync::Lazy;
 use reqwest::Client;
-use tempfile::tempdir;
 
 use dist::get_dists;
 use trunk::fetch_contrib_entries;
@@ -17,7 +16,7 @@ mod trunk;
 
 #[tokio::main]
 async fn main() -> Result {
-    let tmp_dir = tempdir()?;
+    //let tmp_dir = tempdir()?;
 
     let (entries, dists) = tokio::try_join!(fetch_contrib_entries(), get_dists())?;
 
@@ -41,14 +40,17 @@ async fn main() -> Result {
             }
         }
 
-        let extracted_path = release.download_to(tmp_dir.path()).await?;
-        println!("Extracted {}", extracted_path.display());
+        let metadata = release.get_metadata().await?;
+        dbg!(metadata);
+
+        //let extracted_path = release.download_to(tmp_dir.path()).await?;
+        //println!("Extracted {}", extracted_path.display());
 
         // Create Dockerfile
 
         // TODO: open PR
 
-        let _ = fs::remove_dir(extracted_path);
+        // let _ = fs::remove_dir(extracted_path);
     }
 
     Ok(())

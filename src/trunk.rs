@@ -7,7 +7,7 @@ use flate2::read::GzDecoder;
 use serde::Deserialize;
 use tar::EntryType;
 
-pub async fn fetch_contrib_entries() -> Result<Vec<TrunkToml>> {
+pub async fn fetch_contrib_entries() -> Result<Vec<ReducedTrunkToml>> {
     let url = "https://github.com/tembo-io/trunk/archive/refs/heads/main.tar.gz";
     let mut tomls = Vec::new();
 
@@ -64,7 +64,7 @@ pub async fn fetch_contrib_entries() -> Result<Vec<TrunkToml>> {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct TrunkToml {
+pub struct ReducedTrunkToml {
     pub extension: ExtensionInfo,
 }
 
