@@ -37,6 +37,8 @@ impl Release {
 
         let Self { dist, version, .. } = &self;
 
+        let dist = dist.to_lowercase();
+
         format!("https://master.pgxn.org/dist/{dist}/{version}/{dist}-{version}.zip")
     }
 
@@ -61,29 +63,34 @@ impl Release {
         let cursor = Cursor::new(&*bytes);
         let mut archive = ZipArchive::new(cursor)?;
 
+        let mut root_dir = None;
+
         for idx in 0..archive.len() {
             let mut file = archive.by_index(idx)?;
             let Some(path) = file.enclosed_name() else {
                 continue;
             };
 
+            // The root directory will be the first one in the zip archive
+            if root_dir.is_none() {
+                root_dir = Some(target.join(path));
+            }
+
             if file.is_dir() {
-                println!("Created dir {:?}", path);
                 fs::create_dir_all(target.join(path))?;
             } else {
-                if let Some(parent) = path.parent() {
+                let target = target.join(path);
+                if let Some(parent) = target.parent() {
                     if parent.exists().not() {
                         fs::create_dir_all(parent)?
                     }
                 }
-                let mut extracted_file = fs::File::create(path)?;
-                print!("Extracting file {:?}", path);
+                let mut extracted_file = fs::File::create(target)?;
                 io::copy(&mut file, &mut extracted_file)?;
-                println!(".. done!");
             }
         }
 
-        todo!()
+        root_dir.with_context(|| "Expected a root directory to be found")
     }
 }
 
