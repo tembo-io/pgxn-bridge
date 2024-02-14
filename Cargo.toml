@@ -16,3 +16,6 @@ once_cell = "1.19.0"
 zip = "0.6.6"
 bytes = "1.5.0"
 fs-err = "2.11.0"
+tar = "0.4.40"
+flate2 = { version = "1.0.26", features = ["zlib"], default-features = false }
+toml = "0.8.10"
