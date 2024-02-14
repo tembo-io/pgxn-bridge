@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use reqwest::Client;
 
 use dist::get_dists;
-use trunk::fetch_contrib_entries;
+use trunk::{fetch_contrib_entries, trunk_toml::TrunkToml};
 
 static CLIENT: Lazy<Client> = Lazy::new(|| Client::new());
 
@@ -41,7 +41,9 @@ async fn main() -> Result {
         }
 
         let metadata = release.get_metadata().await?;
-        dbg!(metadata);
+        let trunk_toml = TrunkToml::build_from_pgxn_meta(metadata);
+        let rendered_trunk_toml = toml::to_string_pretty(&trunk_toml)?;
+        println!("{rendered_trunk_toml}");
 
         //let extracted_path = release.download_to(tmp_dir.path()).await?;
         //println!("Extracted {}", extracted_path.display());

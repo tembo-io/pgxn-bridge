@@ -1,3 +1,5 @@
+pub mod trunk_toml;
+
 use std::io::{Cursor, Read};
 use std::ops::Not;
 

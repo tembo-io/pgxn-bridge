@@ -144,60 +144,7 @@ pub struct MetaJson {
     pub license: License,
     #[serde(default)]
     pub tags: Vec<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Runtime {
-    pub recommends: Recommends,
-    pub requires: Requires,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Recommends {
-    #[serde(rename = "PostgreSQL")]
-    pub postgre_sql: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Requires {
-    #[serde(rename = "PostgreSQL")]
-    pub postgre_sql: String,
-    pub plpgsql: i64,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PgtapSchema {
-    #[serde(rename = "abstract")]
-    pub abstract_field: String,
-    pub file: String,
-    pub version: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Resources {
-    pub bugtracker: Bugtracker,
-    pub homepage: String,
-    pub repository: Repository,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Bugtracker {
-    pub web: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Repository {
-    #[serde(rename = "type")]
-    pub type_field: String,
-    pub url: String,
-    pub web: String,
+    pub resources: Resources,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -212,4 +159,22 @@ pub enum Maintainer {
 pub enum License {
     Simple(String),
     WithLink(HashMap<String, String>),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Resources {
+    pub bugtracker: Option<Bugtracker>,
+    pub homepage: Option<String>,
+    pub repository: Repository,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Bugtracker {
+    pub web: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Repository {
+    pub url: String,
+    pub web: String,
 }
