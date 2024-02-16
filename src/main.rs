@@ -1,22 +1,37 @@
 pub type Result<T = ()> = anyhow::Result<T>;
 
 use std::cmp::Ordering;
+use std::io::Write;
 
+use fs_err as fs;
+use git::TrunkRepo;
 use once_cell::sync::Lazy;
 use reqwest::Client;
 
 use dist::get_dists;
+use tempfile::tempdir;
 use trunk::{fetch_contrib_entries, trunk_toml::TrunkToml};
 
-static CLIENT: Lazy<Client> = Lazy::new(|| Client::new());
+static CLIENT: Lazy<Client> = Lazy::new(Client::new);
+
+static GH_PAT: Lazy<String> = Lazy::new(|| std::env::var("GH_PAT").unwrap());
+static GH_EMAIL: Lazy<String> = Lazy::new(|| std::env::var("GH_EMAIL").unwrap());
+static GH_USERNAME: Lazy<String> = Lazy::new(|| std::env::var("GH_USERNAME").unwrap());
+static GH_AUTHOR: Lazy<String> = Lazy::new(|| std::env::var("GH_AUTHOR").unwrap());
 
 /// Functions and types related to PGXN dist api
 mod dist;
+/// Functions and types related to managing git repos
+mod git;
+/// Functions and types related to Trunk API
 mod trunk;
 
 #[tokio::main]
 async fn main() -> Result {
-    //let tmp_dir = tempdir()?;
+    let tmp_dir = tempdir()?;
+    let trunk_repo_path = tmp_dir.path().join("trunk");
+
+    let mut trunk_repo = TrunkRepo::clone(&trunk_repo_path)?;
 
     let (entries, dists) = tokio::try_join!(fetch_contrib_entries(), get_dists())?;
 
@@ -41,18 +56,25 @@ async fn main() -> Result {
         }
 
         let metadata = release.get_metadata().await?;
+
+        let branch_name = format!("pgxn-bridge/{}-{}", metadata.name, metadata.version);
+        let commit_message = format!(
+            "pgxn-bridge: publish {} v{}",
+            metadata.name, metadata.version
+        );
+
         let trunk_toml = TrunkToml::build_from_pgxn_meta(metadata);
         let rendered_trunk_toml = toml::to_string_pretty(&trunk_toml)?;
-        println!("{rendered_trunk_toml}");
 
-        //let extracted_path = release.download_to(tmp_dir.path()).await?;
-        //println!("Extracted {}", extracted_path.display());
+        trunk_repo.create_branch(&branch_name)?;
 
-        // Create Dockerfile
+        let directory = trunk_repo_path.join("contrib").join(&release.dist);
+        fs::create_dir_all(&directory)?;
+        let toml = directory.join("Trunk.toml");
+        let mut toml = fs::File::create(toml)?;
+        write!(toml, "{rendered_trunk_toml}")?;
 
-        // TODO: open PR
-
-        // let _ = fs::remove_dir(extracted_path);
+        trunk_repo.commit_and_push(&commit_message)?;
     }
 
     Ok(())

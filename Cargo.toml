@@ -19,3 +19,4 @@ fs-err = "2.11.0"
 tar = "0.4.40"
 flate2 = { version = "1.0.26", features = ["zlib"], default-features = false }
 toml = "0.8.10"
+git2 = "0.18.2"
