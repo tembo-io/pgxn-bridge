@@ -30,6 +30,7 @@ mod trunk;
 async fn main() -> Result {
     let tmp_dir = tempdir()?;
     let trunk_repo_path = tmp_dir.path().join("trunk");
+    println!("Cloned to {}", trunk_repo_path.display());
 
     let mut trunk_repo = TrunkRepo::clone(&trunk_repo_path)?;
 
@@ -66,15 +67,15 @@ async fn main() -> Result {
         let trunk_toml = TrunkToml::build_from_pgxn_meta(metadata);
         let rendered_trunk_toml = toml::to_string_pretty(&trunk_toml)?;
 
-        trunk_repo.create_branch(&branch_name)?;
-
         let directory = trunk_repo_path.join("contrib").join(&release.dist);
         fs::create_dir_all(&directory)?;
         let toml = directory.join("Trunk.toml");
         let mut toml = fs::File::create(toml)?;
         write!(toml, "{rendered_trunk_toml}")?;
 
-        trunk_repo.commit_and_push(&commit_message)?;
+        println!("Created {}", directory.join("Trunk.toml").display());
+
+        trunk_repo.commit_and_push(&commit_message, &branch_name)?;
     }
 
     Ok(())

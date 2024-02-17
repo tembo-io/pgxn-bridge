@@ -1,36 +1,23 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
-use git2::{Cred, PushOptions, RemoteCallbacks, Repository, Signature};
+use git2::{Cred, FetchOptions, PushOptions, RemoteCallbacks, Repository, ResetType, Signature};
 
 use crate::{Result, GH_AUTHOR, GH_EMAIL, GH_PAT, GH_USERNAME};
 
 use anyhow::{anyhow, Context};
 
 pub struct TrunkRepo {
-    inner: Repository,
-    current_branch: Option<String>,
+    inner: Repository
 }
 
 impl TrunkRepo {
     pub fn clone(save_to: &Path) -> Result<Self> {
         Ok(Self {
-            inner: Repository::clone("https://github.com/tembo-io/trunk.git", save_to)?,
-            current_branch: None,
+            inner: Repository::clone("https://github.com/vrmiguel/trunk.git", save_to)?,
         })
     }
 
-    pub fn create_branch(&mut self, branch_name: &str) -> Result {
-        let head = self.inner.head()?.peel_to_commit()?;
-        self.inner.branch(branch_name, &head, false)?;
-
-        self.current_branch = Some(branch_name.into());
-
-        println!("Created branch {branch_name}");
-
-        Ok(())
-    }
-
-    fn commit(&self, message: &str, author: &str, email: &str) -> Result {
+    fn commit_to_branch(&self, message: &str, author: &str, email: &str, branch_name: &str) -> Result {
         let repo = &self.inner;
 
         // Create the signature for the commit
@@ -58,18 +45,22 @@ impl TrunkRepo {
         let parents = &[&parent_commit];
 
         // Commit the changes
-        repo.commit(Some("HEAD"), &sig, &sig, message, &tree, parents)?;
+        let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, parents)?;
+
+        let commit = repo.find_commit(oid)?;
+
+        repo.branch(branch_name, &commit, false)?;
 
         Ok(())
     }
 
-    pub fn commit_and_push(&mut self, commit_message: &str) -> Result {
-        let branch_name = self
-            .current_branch
-            .as_deref()
-            .with_context(|| "Expected a branch to be set")?;
 
-        self.commit(commit_message, &GH_AUTHOR, &GH_EMAIL)?;
+//        self.inner.branch(branch_name, &head, false)?;
+
+    pub fn commit_and_push(&mut self, commit_message: &str, branch_name: &str) -> Result {
+        println!("Branch name is {branch_name}");
+
+        self.commit_to_branch(commit_message, &GH_AUTHOR, &GH_EMAIL, branch_name)?;
 
         let mut remote = self.inner.find_remote("origin")?;
 

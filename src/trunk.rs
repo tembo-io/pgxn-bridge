@@ -10,7 +10,7 @@ use serde::Deserialize;
 use tar::EntryType;
 
 pub async fn fetch_contrib_entries() -> Result<Vec<ReducedTrunkToml>> {
-    let url = "https://github.com/tembo-io/trunk/archive/refs/heads/main.tar.gz";
+    let url = "https://github.com/vrmiguel/trunk/archive/refs/heads/main.tar.gz";
     let mut tomls = Vec::new();
 
     let trunk_archive = reqwest::get(url).await?.bytes().await?;
