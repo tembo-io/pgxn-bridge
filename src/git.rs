@@ -1,13 +1,13 @@
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
-use git2::{Cred, FetchOptions, PushOptions, RemoteCallbacks, Repository, ResetType, Signature};
+use git2::{Cred, PushOptions, RemoteCallbacks, Repository, Signature};
 
 use crate::{Result, GH_AUTHOR, GH_EMAIL, GH_PAT, GH_USERNAME};
 
 use anyhow::{anyhow, Context};
 
 pub struct TrunkRepo {
-    inner: Repository
+    inner: Repository,
 }
 
 impl TrunkRepo {
@@ -17,7 +17,13 @@ impl TrunkRepo {
         })
     }
 
-    fn commit_to_branch(&self, message: &str, author: &str, email: &str, branch_name: &str) -> Result {
+    fn commit_to_branch(
+        &self,
+        message: &str,
+        author: &str,
+        email: &str,
+        branch_name: &str,
+    ) -> Result {
         let repo = &self.inner;
 
         // Create the signature for the commit
@@ -54,12 +60,27 @@ impl TrunkRepo {
         Ok(())
     }
 
+    fn reset_to_main(&self) -> Result {
+        let repo = &self.inner;
 
-//        self.inner.branch(branch_name, &head, false)?;
+        // Fetch main
+        let mut remote = repo.find_remote("origin")?;
+        remote.fetch(&["main"], None, None)?;
+
+        // Get HEAD from origin/main
+        let origin_main = repo.find_reference("refs/remotes/origin/main")?;
+        let origin_main_oid = origin_main
+            .target()
+            .with_context(|| "Cannot find target for origin/main")?;
+        let origin_main_commit = repo.find_commit(origin_main_oid)?;
+
+        // Hard reset
+        repo.reset(origin_main_commit.as_object(), git2::ResetType::Hard, None)?;
+
+        Ok(())
+    }
 
     pub fn commit_and_push(&mut self, commit_message: &str, branch_name: &str) -> Result {
-        println!("Branch name is {branch_name}");
-
         self.commit_to_branch(commit_message, &GH_AUTHOR, &GH_EMAIL, branch_name)?;
 
         let mut remote = self.inner.find_remote("origin")?;
@@ -73,6 +94,8 @@ impl TrunkRepo {
         opts.remote_callbacks(callbacks);
 
         remote.push(&[format!("refs/heads/{}", branch_name)], Some(&mut opts))?;
+
+        self.reset_to_main()?;
 
         Ok(())
     }
