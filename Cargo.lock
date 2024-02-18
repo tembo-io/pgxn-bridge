@@ -793,6 +793,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "slicedisplay",
  "tar",
  "tempfile",
  "tokio",
@@ -1054,6 +1055,12 @@ checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
 dependencies = [
  "autocfg",
 ]
+
+[[package]]
+name = "slicedisplay"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8b008f3d3b7401b0c0213c4a054c60b894537f014278130b041adb1bfa650e7"
 
 [[package]]
 name = "socket2"

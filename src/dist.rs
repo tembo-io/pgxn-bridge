@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Display,
     io::{self, Cursor},
     ops::Not,
     path::{Path, PathBuf},
@@ -8,6 +9,7 @@ use std::{
 use anyhow::{bail, Context};
 use fs_err as fs;
 use serde::Deserialize;
+use slicedisplay::SliceDisplay;
 use zip::ZipArchive;
 
 use crate::{Result, CLIENT};
@@ -177,4 +179,15 @@ pub struct Bugtracker {
 pub struct Repository {
     pub url: String,
     pub web: String,
+}
+
+impl Display for Maintainer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Maintainer::Single(single) => write!(f, "{single}"),
+            Maintainer::Multiple(multiple) => {
+                writeln!(f, "{}", multiple.display().terminator(' ', ' '))
+            }
+        }
+    }
 }

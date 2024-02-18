@@ -23,6 +23,7 @@ static GH_AUTHOR: Lazy<String> = Lazy::new(|| std::env::var("GH_AUTHOR").unwrap(
 mod dist;
 /// Functions and types related to managing git repos
 mod git;
+mod github;
 /// Functions and types related to Trunk API
 mod trunk;
 
@@ -64,6 +65,7 @@ async fn main() -> Result {
             metadata.name, metadata.version
         );
 
+        let pull_request_description = github::build_description(&metadata)?;
         let trunk_toml = TrunkToml::build_from_pgxn_meta(metadata);
         let rendered_trunk_toml = toml::to_string_pretty(&trunk_toml)?;
 
@@ -76,6 +78,8 @@ async fn main() -> Result {
         println!("Created {}", directory.join("Trunk.toml").display());
 
         trunk_repo.commit_and_push(&commit_message, &branch_name)?;
+
+        github::open_pull_request(&commit_message, &branch_name, &pull_request_description).await?;
     }
 
     Ok(())
