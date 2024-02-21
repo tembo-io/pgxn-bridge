@@ -8,8 +8,10 @@ use anyhow::Context;
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use tar::EntryType;
+use tracing::info;
 
 pub async fn fetch_contrib_entries() -> Result<Vec<ReducedTrunkToml>> {
+    info!("Fetching entries in Trunk contrib");
     let url = "https://github.com/vrmiguel/trunk/archive/refs/heads/main.tar.gz";
     let mut tomls = Vec::new();
 

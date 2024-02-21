@@ -10,6 +10,7 @@ use reqwest::Client;
 
 use dist::get_dists;
 use tempfile::tempdir;
+use tracing::{error, info};
 use trunk::{fetch_contrib_entries, trunk_toml::TrunkToml};
 
 static CLIENT: Lazy<Client> = Lazy::new(Client::new);
@@ -29,15 +30,17 @@ mod trunk;
 
 #[tokio::main]
 async fn main() -> Result {
+    start_tracing();
+
     let tmp_dir = tempdir()?;
     let trunk_repo_path = tmp_dir.path().join("trunk");
-    println!("Cloned to {}", trunk_repo_path.display());
 
     let mut trunk_repo = TrunkRepo::clone(&trunk_repo_path)?;
+    info!("Cloned trunk to {}", trunk_repo_path.display());
 
     let (entries, dists) = tokio::try_join!(fetch_contrib_entries(), get_dists())?;
 
-    for release in dists.recent {
+    for release in dists.recent.into_iter().rev() {
         // Check if extension is already in Trunk
         let maybe_trunk_entry = entries.iter().find(|entry| {
             entry.extension.name == release.dist
@@ -52,12 +55,14 @@ async fn main() -> Result {
                 // Means pgxn has a more updated version of this extension compared to trunk
             } else {
                 // Trunk has a more or equally updated version of this extension, so skip
-                println!("Already updated in Trunk: {}", trunk_entry.extension.name);
+                info!("{} is already up-to-date in Trunk, skipping.", trunk_entry.extension.name);
                 continue;
             }
         }
 
         let metadata = release.get_metadata().await?;
+
+        info!("Will open a PR for {} v{}", metadata.name, metadata.version);
 
         let branch_name = format!("pgxn-bridge/{}-{}", metadata.name, metadata.version);
         let commit_message = format!(
@@ -75,11 +80,16 @@ async fn main() -> Result {
         let mut toml = fs::File::create(toml)?;
         write!(toml, "{rendered_trunk_toml}")?;
 
-        println!("Created {}", directory.join("Trunk.toml").display());
+        if let Err(err) = trunk_repo.commit_and_push(&commit_message, &branch_name) {
+            error!("Commit failure: {err}");
+            continue;
+        }
 
-        trunk_repo.commit_and_push(&commit_message, &branch_name)?;
-
-        github::open_pull_request(&commit_message, &branch_name, &pull_request_description).await?;
+        
+        if let Err(err) = github::open_pull_request(&commit_message, &branch_name, &pull_request_description).await {
+            error!("Failed to create pull request: {err}");
+            continue;
+        }
     }
 
     Ok(())
@@ -106,4 +116,15 @@ fn compare_by_semver(a: &str, b: &str) -> Ordering {
     }
 
     a_parts.len().cmp(&b_parts.len())
+}
+
+fn start_tracing() {
+    let subscriber = tracing_subscriber::fmt()
+        .compact()
+        .with_file(true)
+        .with_line_number(true)
+        .with_target(false)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).unwrap();
 }

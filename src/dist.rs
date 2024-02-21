@@ -10,6 +10,7 @@ use anyhow::{bail, Context};
 use fs_err as fs;
 use serde::Deserialize;
 use slicedisplay::SliceDisplay;
+use tracing::info;
 use zip::ZipArchive;
 
 use crate::{Result, CLIENT};
@@ -121,6 +122,8 @@ impl Release {
 }
 
 pub async fn get_dists() -> anyhow::Result<DistResponse> {
+    info!("Getting recent entries in PGXNs");
+
     let url = "https://master.pgxn.org/stats/dist.json";
 
     reqwest::get(url)
